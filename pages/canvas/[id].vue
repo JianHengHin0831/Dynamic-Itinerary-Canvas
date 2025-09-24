@@ -170,12 +170,12 @@ async function fetchCollaboratorsCount() {
   try {
     const { data, error } = await supabase
       .from("canvas_collaborators")
-      .select("email", { count: "exact" })
+      .select("user_id", { count: "exact" })
       .eq("canvas_id", canvasId);
 
     if (error) throw error;
 
-    collaboratorsCount.value = data?.length + 1 || 1;
+    collaboratorsCount.value = data?.length;
   } catch (error: any) {
     console.error("Failed to fetch collaborators:", error.message);
   }
@@ -212,41 +212,87 @@ async function handleFileUpload(file: File) {
     //   }
     // );
     // console.log(aiResponse);
-    const aiResponse = {
-      type: "destination_idea",
-      content: {
-        title: "Penang2",
-        vibe: "Cultural, Scenic",
-        description:
-          "Penang is a captivating destination where heritage and culture intertwine with natural beauty. The vibrant architecture, such as the Kek Lok Si Temple pictured, showcases the region's diverse cultural influences. Nestled amid lush hills, this setting is perfect for those seeking tranquility and a deeper connection with the local traditions.",
-        suggested_activities: [
-          "Visit Kek Lok Si Temple",
-          "Explore George Town's street art",
-          "Indulge in local Penang cuisine",
-          "Hike up Penang Hill for panoramic views",
-        ],
-        image_url: "image_placeholder",
+    const aiResponse = [
+      {
+        type: "destination_idea",
+        content: {
+          title: "Kuala Lumpur, Malaysia",
+          vibe: "Vibrant, Cosmopolitan, Modern",
+          description:
+            "Kuala Lumpur, the bustling capital of Malaysia, is a vibrant metropolis known for its modern skyline dominated by the iconic Petronas Twin Towers. This city offers a diverse cultural experience, bustling street markets, and a dynamic culinary scene, making it a truly cosmopolitan destination.",
+          suggested_activities: [
+            "Visit the Petronas Towers",
+            "Explore Batu Caves",
+            "Enjoy street food at Jalan Alor",
+            "Shop at Suria KLCC",
+          ],
+          image_url: "image_placeholder.png",
+        },
       },
-    };
+      {
+        type: "destination_idea",
+        content: {
+          title: "Shanghai, China",
+          vibe: "Dynamic, Futuristic, Cultural",
+          description:
+            "Shanghai is a city where futuristic skyscrapers seamlessly blend with rich historical sites. The bustling vibe of the city is complemented by beautiful riverfronts, innovative architecture, and a vibrant arts scene, making it a hub of culture and modernity.",
+          suggested_activities: [
+            "Walk along the Bund",
+            "Visit Shanghai Tower",
+            "Explore Yu Garden",
+            "Discover French Concession",
+          ],
+          image_url: "image_placeholder.png",
+        },
+      },
+      {
+        type: "destination_idea",
+        content: {
+          title: "Dubai, UAE",
+          vibe: "Extravagant, Luxurious, Futuristic",
+          description:
+            "Dubai is a city known for its luxurious lifestyle, cutting-edge architecture, and extravagant attractions. From the awe-inspiring Burj Khalifa to the palm-shaped islands, Dubai offers a blend of modern wonders and rich cultural experiences.",
+          suggested_activities: [
+            "See Burj Khalifa",
+            "Shop at Dubai Mall",
+            "Explore Palm Jumeirah",
+            "Desert Safari",
+          ],
+          image_url: "image_placeholder.png",
+        },
+      },
+    ];
+
+    alert(
+      "The suggested locations are:\n " +
+        aiResponse.map((dest) => dest.content.title).join("\n ")
+    );
 
     // --- 3. Insert the AI response into Supabase ---
-    const { data: newItems, error: insertError } = await supabase
-      .from("canvas_items")
-      .insert({
-        canvas_id: canvasId,
-        type: aiResponse.type,
-        content: aiResponse.content,
-        created_by: useSupabaseUser().value?.id || "",
-        position: items.value.length,
-      })
-      .select()
-      .single();
+    for (const dest of aiResponse) {
+      const exists = items.value.some(
+        (item) => item.content.title === dest.content.title
+      );
+      if (exists) continue;
 
-    if (insertError) throw insertError;
+      const { data: newItem, error: insertError } = await supabase
+        .from("canvas_items")
+        .insert({
+          canvas_id: canvasId,
+          type: dest.type,
+          content: dest.content,
+          created_by: useSupabaseUser().value?.id || "",
+          position: items.value.length,
+        })
+        .select()
+        .single();
 
-    // --- 4. Refresh the list to show the new item ---
-    if (newItems) {
-      items.value.push(newItems);
+      if (insertError) {
+        console.error("Insert error:", insertError);
+      } else {
+        // 可选：更新本地 items
+        items.value.push(newItem);
+      }
     }
   } catch (error: any) {
     errorMsg.value = `Something went wrong: ${error.message}`;
@@ -391,7 +437,7 @@ async function handleInvite() {
     });
 
     // Success!
-    alert(`Invitation sent to ${response}!`);
+    alert(`Invitation sent!`);
     closeInviteModal();
   } catch (error: any) {
     inviteError.value = error.message;

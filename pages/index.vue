@@ -209,6 +209,21 @@ async function createAndGoToCanvas() {
     return;
   }
 
+  const { error: groupError } = await supabase
+    .from("canvas_collaborators")
+    .insert({
+      canvas_id: data.id,
+      user_id: user.value.id,
+      role: "editor",
+    })
+    .single();
+
+  if (groupError) {
+    alert(groupError.message);
+    isCreating.value = false;
+    return;
+  }
+
   if (data) {
     // We don't need to manually refresh the list, just go to the new page
     router.push(`/canvas/${data.id}`);

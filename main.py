@@ -43,18 +43,23 @@ async def inspire_from_image(image: UploadFile = File(...)):
 
     # 2. using openapi prompt
     prompt = """
-    You are a world-class travel expert. Analyze this image and return a JSON object with the following structure:
+    You are a world-class travel expert. Analyze this image and return a JSON array with THREE destination objects:
+    1. The actual destination depicted in the image.
+    2. Two additional destinations that match the same travel vibe.
+
+    Each object should have the following structure:
     {
-      "type": "destination_idea",
-      "content": {
-        "title": "A short, catchy title (e.g., 'Santorini, Greece')",
+    "type": "destination_idea",
+    "content": {
+        "title": "City, Country (always this format, e.g., 'Paris, France')",,
         "vibe": "Describe the travel vibe in a few words (e.g., 'Romantic, Relaxing, Picturesque')",
-        "description": "A one-paragraph, engaging description of the destination and why it matches the image.",
+        "description": "A one-paragraph, engaging description of the destination and why it matches the vibe.",
         "suggested_activities": ["A list of 3-4 key activities that fit the vibe."],
-        "image_url": "Provide a placeholder string 'image_placeholder' for now."
-      }
+        "image_url": "Provide a placeholder string 'image_placeholder.png' for now."
     }
-    Do not include any text or markdown formatting outside of the JSON object.
+    }
+
+    Do not include any text or markdown outside the JSON array.
     """
 
     # 3. OpenAI GPT-4o
@@ -75,7 +80,7 @@ async def inspire_from_image(image: UploadFile = File(...)):
                     ],
                 }
             ],
-            max_tokens=500,
+            max_tokens=1500,
         )
         response_content = response.choices[0].message.content
     except Exception as e:

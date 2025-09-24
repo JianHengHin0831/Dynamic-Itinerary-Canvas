@@ -12,6 +12,12 @@
       v-if="item.type === 'destination_idea'"
       class="bg-white flex-grow flex flex-col"
     >
+      <img
+        :src="item.content.image || '/image_placeholder.png'"
+        :alt="item.content.title"
+        class="w-full"
+        height="600"
+      />
       <div class="p-6 flex-grow">
         <h4 class="text-xl font-bold text-gray-800 mb-2">
           {{ item.content.title }}

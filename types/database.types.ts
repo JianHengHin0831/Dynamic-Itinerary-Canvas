@@ -16,17 +16,26 @@ export type Database = {
     Tables: {
       canvas_collaborators: {
         Row: {
+          budget: number | null
           canvas_id: string
+          days: number | null
+          id: number
           role: string
           user_id: string
         }
         Insert: {
+          budget?: number | null
           canvas_id: string
+          days?: number | null
+          id?: number
           role?: string
           user_id: string
         }
         Update: {
+          budget?: number | null
           canvas_id?: string
+          days?: number | null
+          id?: number
           role?: string
           user_id?: string
         }
@@ -99,12 +108,30 @@ export type Database = {
         }
         Relationships: []
       }
+      users: {
+        Row: {
+          email: string
+          id: string
+        }
+        Insert: {
+          email: string
+          id: string
+        }
+        Update: {
+          email?: string
+          id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_access_canvas: {
+        Args: { canvas_id_to_check: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
