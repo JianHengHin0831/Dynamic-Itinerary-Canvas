@@ -4,7 +4,9 @@
       <div
         class="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8 flex justify-between items-center"
       >
-        <h1 class="text-2xl font-bold text-gray-900">TravelWizard Canvas</h1>
+        <NuxtLink :to="`/`" class="text-2xl font-bold text-gray-900"
+          >TravelWizard Canvas</NuxtLink
+        >
         <button
           @click="handleLogout"
           class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700"

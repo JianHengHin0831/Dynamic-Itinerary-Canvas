@@ -1,61 +1,76 @@
 <template>
   <div>
-    <!-- The Uploader Component -->
-    <div
-      class="mb-6 p-4 border-dashed border-2 border-gray-300 rounded-lg text-center"
-    >
-      <h3 class="text-lg font-medium text-gray-700 mb-2">Get Inspired!</h3>
-      <p class="text-sm text-gray-500 mb-4">
-        Upload an image of a place you'd love to visit.
-      </p>
-      <input
-        type="file"
-        @change="handleFileUpload"
-        accept="image/*"
-        class="text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"
-      />
-      <p v-if="isLoading" class="mt-4 text-blue-500 animate-pulse">
-        AI is thinking...
-      </p>
-      <p v-if="errorMsg" class="mt-4 text-red-500">{{ errorMsg }}</p>
-    </div>
-
-    <!-- The Canvas Area -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <div
-        v-for="item in items"
-        :key="item.id"
-        class="bg-white shadow-lg rounded-lg overflow-hidden"
+    <div class="relative">
+      <span
+        v-if="copied"
+        class="absolute left-0 -bottom-6 bg-gray-800 text-white text-xs rounded py-1 px-2"
       >
-        <div class="p-6">
-          <h4 class="text-xl font-bold text-gray-800 mb-2">
-            {{ item.content.title }}
-          </h4>
-          <p class="text-sm font-semibold text-indigo-600 mb-3">
-            {{ item.content.vibe }}
-          </p>
-          <p class="text-gray-600 text-base mb-4">
-            {{ item.content.description }}
-          </p>
-          <div>
-            <h5 class="font-semibold mb-2">Suggested Activities:</h5>
-            <ul class="list-disc list-inside text-gray-500 text-sm">
-              <li
-                v-for="(activity, index) in item.content.suggested_activities"
-                :key="index"
-              >
-                {{ activity }}
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
+        Link Copied!
+      </span>
     </div>
+    <CanvasToolbar
+      :selection-count="selectedItems.length"
+      :is-loading="isLoading"
+      :collaborators-count="collaboratorsCount"
+      @generate-poll="generatePoll"
+      @open-invite-modal="showInviteModal = true"
+    />
+
+    <ImageUploader :is-loading="isLoading" @file-uploaded="handleFileUpload" />
+
+    <p v-if="isLoading" class="my-4 text-center text-blue-500 animate-pulse">
+      AI is thinking...
+    </p>
+    <p v-if="errorMsg" class="my-4 text-center text-red-500">{{ errorMsg }}</p>
+
+    <CanvasGrid
+      v-model:items="items"
+      :selected-items="selectedItems"
+      @order-changed="onDragEnd"
+      @item-toggled="toggleSelection"
+    />
+
     <div
-      v-if="!items.length && !isLoading"
+      v-if="!items.length && !isInitialLoading"
       class="text-center text-gray-500 mt-10"
     >
       Your canvas is empty. Upload an image to get started!
+    </div>
+  </div>
+  <div
+    v-if="showInviteModal"
+    class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+  >
+    <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+      <h3 class="text-xl font-bold mb-4">Invite a Collaborator</h3>
+      <p class="text-sm text-gray-500 mb-4">
+        Enter the email of the user you want to invite. They must have a Travel
+        Wizard account.
+      </p>
+      <input
+        v-model="inviteEmail"
+        type="email"
+        class="w-full p-2 border border-gray-300 rounded-md mb-2"
+        placeholder="collaborator@example.com"
+      />
+      <p v-if="inviteError" class="text-red-500 text-sm mb-4">
+        {{ inviteError }}
+      </p>
+      <div class="flex justify-end space-x-3">
+        <button
+          @click="closeInviteModal"
+          class="px-4 py-2 bg-gray-200 rounded-md hover:bg-gray-300"
+        >
+          Cancel
+        </button>
+        <button
+          @click="handleInvite"
+          :disabled="isInviting"
+          class="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+        >
+          {{ isInviting ? "Inviting..." : "Send Invite" }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -69,24 +84,78 @@ definePageMeta({
 
 // State management
 const items = ref<any[]>([]);
-const isLoading = ref(false);
+const isLoading = ref(false); // For AI processing
+const isInitialLoading = ref(true); // For initial page load
 const errorMsg = ref("");
+const selectedItems = ref<string[]>([]);
+const showInviteModal = ref(false);
+const inviteEmail = ref("");
+const isInviting = ref(false);
+const inviteError = ref("");
 
 // Composables
 const supabase = useSupabaseClient<Database>();
 const route = useRoute();
 const config = useRuntimeConfig();
-
+const user = useSupabaseUser();
 const canvasId = route.params.id as string;
+const copied = ref(false);
+
+function toggleSelection(item: any) {
+  // Only allow selecting 'destination_idea' cards for polls
+  if (item.type !== "destination_idea") return;
+
+  const itemId = item.id;
+  const index = selectedItems.value.indexOf(itemId);
+
+  if (index > -1) {
+    // Already selected, so unselect it
+    selectedItems.value.splice(index, 1);
+  } else {
+    selectedItems.value.push(itemId);
+  }
+}
+
+async function ensureCanvasExists() {
+  if (!user.value) {
+    errorMsg.value = "You must be logged in.";
+    return;
+  }
+
+  // 1. Check if the canvas exists
+  const { data: canvas, error: fetchError } = await supabase
+    .from("canvases")
+    .select("id")
+    .eq("id", canvasId)
+    .single(); // .single() returns null instead of an empty array if not found
+
+  if (fetchError && fetchError.code !== "PGRST116") {
+    // Ignore 'PGRST116' (not found error)
+    throw fetchError;
+  }
+
+  // 2. If it doesn't exist, create it
+  if (!canvas) {
+    console.log(`Canvas ${canvasId} not found, creating it...`);
+    const { error: insertError } = await supabase.from("canvases").insert({
+      id: canvasId,
+      name: "My Demo Canvas", // You can make this dynamic later
+      owner_id: user.value.id,
+    });
+
+    if (insertError) throw insertError;
+  }
+}
 
 // --- 1. Fetch existing items when the page loads ---
 async function fetchItems() {
   try {
+    isInitialLoading.value = true;
     const { data, error } = await supabase
       .from("canvas_items")
       .select("*")
       .eq("canvas_id", canvasId)
-      .order("created_at", { ascending: false });
+      .order("position", { ascending: true });
 
     if (error) throw error;
     items.value = data || [];
@@ -95,16 +164,34 @@ async function fetchItems() {
   }
 }
 
-onMounted(() => {
-  fetchItems();
+const collaboratorsCount = ref(0);
+
+async function fetchCollaboratorsCount() {
+  try {
+    const { data, error } = await supabase
+      .from("canvas_collaborators")
+      .select("email", { count: "exact" })
+      .eq("canvas_id", canvasId);
+
+    if (error) throw error;
+
+    collaboratorsCount.value = data?.length + 1 || 1;
+  } catch (error: any) {
+    console.error("Failed to fetch collaborators:", error.message);
+  }
+}
+
+onMounted(async () => {
+  try {
+    await ensureCanvasExists();
+    await fetchItems();
+    await fetchCollaboratorsCount();
+  } catch (error: any) {
+    errorMsg.value = `Failed to initialize canvas: ${error.message}`;
+  }
 });
-
 // --- 2. Handle the file upload and AI processing ---
-async function handleFileUpload(event: Event) {
-  const input = event.target as HTMLInputElement;
-  if (!input.files?.length) return;
-  const file = input.files[0];
-
+async function handleFileUpload(file: File) {
   isLoading.value = true;
   errorMsg.value = "";
 
@@ -117,26 +204,50 @@ async function handleFileUpload(event: Event) {
 
   try {
     // Call our Python backend
-    const aiResponse = await $fetch<any>(
-      `${config.public.apiBaseUrl}/api/v1/inspire-from-image`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+    // const aiResponse = await $fetch<any>(
+    //   `${config.public.apiBaseUrl}/api/v1/inspire-from-image`,
+    //   {
+    //     method: "POST",
+    //     body: formData,
+    //   }
+    // );
+    // console.log(aiResponse);
+    const aiResponse = {
+      type: "destination_idea",
+      content: {
+        title: "Penang2",
+        vibe: "Cultural, Scenic",
+        description:
+          "Penang is a captivating destination where heritage and culture intertwine with natural beauty. The vibrant architecture, such as the Kek Lok Si Temple pictured, showcases the region's diverse cultural influences. Nestled amid lush hills, this setting is perfect for those seeking tranquility and a deeper connection with the local traditions.",
+        suggested_activities: [
+          "Visit Kek Lok Si Temple",
+          "Explore George Town's street art",
+          "Indulge in local Penang cuisine",
+          "Hike up Penang Hill for panoramic views",
+        ],
+        image_url: "image_placeholder",
+      },
+    };
 
     // --- 3. Insert the AI response into Supabase ---
-    const { error: insertError } = await supabase.from("canvas_items").insert({
-      canvas_id: canvasId,
-      type: aiResponse.type,
-      content: aiResponse.content,
-      created_by: useSupabaseUser().value?.id || "",
-    });
+    const { data: newItems, error: insertError } = await supabase
+      .from("canvas_items")
+      .insert({
+        canvas_id: canvasId,
+        type: aiResponse.type,
+        content: aiResponse.content,
+        created_by: useSupabaseUser().value?.id || "",
+        position: items.value.length,
+      })
+      .select()
+      .single();
 
     if (insertError) throw insertError;
 
     // --- 4. Refresh the list to show the new item ---
-    await fetchItems();
+    if (newItems) {
+      items.value.push(newItems);
+    }
   } catch (error: any) {
     errorMsg.value = `Something went wrong: ${error.message}`;
     console.error(error);
@@ -144,4 +255,171 @@ async function handleFileUpload(event: Event) {
     isLoading.value = false;
   }
 }
+
+async function onDragEnd() {
+  const updates = items.value.map((item, index) =>
+    supabase.from("canvas_items").update({ position: index }).eq("id", item.id)
+  );
+
+  try {
+    await Promise.all(updates);
+  } catch (error: any) {
+    errorMsg.value = `Failed to save new order: ${error.message}`;
+    await fetchItems();
+  }
+}
+
+let channel: any = null;
+
+onMounted(async () => {
+  await fetchItems();
+
+  channel = supabase
+    .channel(`canvas-${canvasId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "canvas_items",
+        filter: `canvas_id=eq.${canvasId}`,
+      },
+      (payload) => {
+        console.log("Realtime INSERT received!", payload);
+
+        // --- DUPLICATION CHECK ---
+        const existingItem = items.value.find(
+          (item) => item.id === payload.new.id
+        );
+        if (!existingItem) {
+          items.value.push(payload.new);
+        }
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "canvas_items",
+        filter: `canvas_id=eq.${canvasId}`,
+      },
+      (payload) => {
+        console.log("Realtime UPDATE received!", payload);
+        const index = items.value.findIndex(
+          (item) => item.id === payload.new.id
+        );
+        if (index !== -1) {
+          items.value[index] = payload.new;
+        }
+      }
+    )
+    .subscribe();
+});
+
+// --- NEW: GENERATE POLL FUNCTION ---
+async function generatePoll() {
+  if (selectedItems.value.length !== 2) return;
+
+  isLoading.value = true;
+  errorMsg.value = "";
+
+  try {
+    const optionA_full = items.value.find(
+      (i) => i.id === selectedItems.value[0]
+    );
+    const optionB_full = items.value.find(
+      (i) => i.id === selectedItems.value[1]
+    );
+
+    if (!optionA_full || !optionB_full)
+      throw new Error("Selected items not found.");
+
+    // Call our new backend endpoint
+    const pollContent = await $fetch<any>(
+      `${config.public.apiBaseUrl}/api/v1/generate-poll`,
+      {
+        method: "POST",
+        body: {
+          optionA: optionA_full.content,
+          optionB: optionB_full.content,
+        },
+      }
+    );
+
+    // Insert the new poll card into Supabase
+    const { error: insertError } = await supabase.from("canvas_items").insert({
+      canvas_id: canvasId,
+      type: "poll", // The new card type!
+      content: pollContent,
+      created_by: user.value?.id || "",
+      position: items.value.length,
+    });
+
+    if (insertError) throw insertError;
+
+    // Clear selection after poll is created
+    selectedItems.value = [];
+
+    // Realtime will handle adding the poll to the UI for everyone
+  } catch (error: any) {
+    errorMsg.value = `Failed to create poll: ${error.message}`;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
+function closeInviteModal() {
+  showInviteModal.value = false;
+  inviteEmail.value = "";
+  inviteError.value = "";
+}
+
+async function handleInvite() {
+  if (!inviteEmail.value.trim() || !canvasId) return;
+
+  isInviting.value = true;
+  inviteError.value = "";
+
+  try {
+    const response = await $fetch("/api/invite-user", {
+      method: "POST",
+      body: {
+        canvas_id: canvasId,
+        email: inviteEmail.value.trim(),
+      },
+    });
+
+    // Success!
+    alert(`Invitation sent to ${response}!`);
+    closeInviteModal();
+  } catch (error: any) {
+    inviteError.value = error.message;
+  } finally {
+    isInviting.value = false;
+  }
+}
+
+const collabChannel = supabase
+  .channel(`canvas-collaborators-${canvasId}`)
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "canvas_collaborators",
+      filter: `canvas_id=eq.${canvasId}`,
+    },
+    (payload) => {
+      fetchCollaboratorsCount();
+    }
+  )
+  .subscribe();
+
+onUnmounted(() => {
+  if (channel) {
+    supabase.removeChannel(channel);
+    if (collabChannel) supabase.removeChannel(collabChannel);
+  }
+});
 </script>

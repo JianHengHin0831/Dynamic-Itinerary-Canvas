@@ -5,6 +5,8 @@ import openai
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
+from pydantic import BaseModel
+from typing import Dict, Any
 
 load_dotenv()
 
@@ -90,7 +92,67 @@ async def inspire_from_image(image: UploadFile = File(...)):
             detail="Failed to parse JSON response from OpenAI. Raw response: " + response_content
         )
 
+# Add this import at the top of your main.py file
+from pydantic import BaseModel
+from typing import Dict, Any
 
+# --- Pydantic Model for the Poll Request ---
+# This defines the expected structure of the data your frontend will send.
+class PollRequest(BaseModel):
+    optionA: Dict[str, Any]
+    optionB: Dict[str, Any]
+
+# --- New API Endpoint for Generating Polls ---
+@app.post("/api/v1/generate-poll")
+async def generate_poll(request: PollRequest):
+    """
+    Receives two travel options and uses GPT-4o to generate a poll question.
+    """
+    try:
+        # Convert the dictionary data to a clean string for the prompt
+        option_a_str = json.dumps(request.optionA, indent=2)
+        option_b_str = json.dumps(request.optionB, indent=2)
+
+        # 2. Construct a precise prompt for GPT-4o
+        prompt = f"""
+        You are a helpful travel assistant who creates concise, engaging polls to help groups make decisions.
+        Based on the two travel options below, create a poll. The poll question should highlight the key trade-off or difference between the two choices (e.g., location vs. luxury, adventure vs. relaxation).
+
+        Option A:
+        {option_a_str}
+
+        Option B:
+        {option_b_str}
+
+        Your response MUST be a single, valid JSON object with the following structure:
+        {{
+          "question": "The engaging poll question",
+          "options": [
+            {{ "id": "A", "text": "A short summary for Option A" }},
+            {{ "id": "B", "text": "A short summary for Option B" }}
+          ]
+        }}
+        Do not include any other text or markdown formatting.
+        """
+
+        # 3. Call the OpenAI API
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=300,
+            response_format={"type": "json_object"} # Use JSON mode for reliable output
+        )
+        response_content = response.choices[0].message.content
+
+        # 4. Parse and return the result
+        result = json.loads(response_content)
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate poll: {e}")
+    
 @app.get("/")
 def read_root():
     return {"status": "Travel Wizard AI Service is running!"}
