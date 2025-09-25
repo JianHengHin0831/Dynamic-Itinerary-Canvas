@@ -1,54 +1,3 @@
-<!-- <template>
-  <div
-    class="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50 text-white"
-  >
-    <div class="text-center">
-      <h2 class="text-4xl font-bold mb-4">Live Poll!</h2>
-      <p class="text-2xl mb-8">{{ question.question_text }}</p>
-
-      <div class="flex space-x-8">
-        <button @click="vote('A')" :disabled="hasVoted" class="...">
-          {{ question.option_a_text }}
-        </button>
-        <button @click="vote('B')" :disabled="hasVoted" class="...">
-          {{ question.option_b_text }}
-        </button>
-      </div>
-
-      <div class="mt-8">Time remaining: {{ timer }}s</div>
-    </div>
-  </div>
-</template>
-
-<script setup lang="ts">
-const props = defineProps(["question"]);
-const timer = ref(30);
-const hasVoted = ref(false);
-const supabase = useSupabaseClient();
-const user = useSupabaseUser();
-
-async function vote(option: "A" | "B") {
-  hasVoted.value = true;
-  if (user.value)
-    await supabase.from("live_poll_answers").insert({
-      question_id: props.question.id,
-      user_id: user.value.id,
-      selected_option: option,
-    });
-}
-
-// Timer logic
-onMounted(() => {
-  const interval = setInterval(() => {
-    timer.value--;
-    if (timer.value <= 0) {
-      clearInterval(interval);
-      // Logic to handle timeout (e.g., owner advances to next question)
-    }
-  }, 1000);
-});
-</script> -->
-
 <template>
   <div
     class="fixed inset-0 bg-black bg-opacity-75 flex flex-col items-center justify-center z-50 text-white"
@@ -100,7 +49,7 @@ onMounted(() => {
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, watch } from "vue";
 import { useSupabaseClient, useSupabaseUser } from "#imports";
 
 const props = defineProps<{ question: any; totalParticipants: number }>();
@@ -130,13 +79,13 @@ async function vote(option: "A" | "B") {
 }
 
 async function checkAllVoted() {
-  // 1. 查当前问题已经投票的人数
+  // 1. count voted members
   const { count } = await supabase
     .from("live_poll_answers")
     .select("*", { count: "exact", head: true })
     .eq("question_id", props.question.id);
 
-  // 2. 查总人数 (这里假设你能拿到 totalParticipants)
+  // find total participants
   const totalParticipants = props.totalParticipants;
   if (count === totalParticipants) {
     clearInterval(interval);
@@ -147,8 +96,8 @@ async function checkAllVoted() {
 // Poll timer
 let interval: number;
 function startTimer() {
-  clearInterval(interval); // 确保旧的 timer 停止
-  timer.value = 30; // 重置时间
+  clearInterval(interval); // old timer pause
+  timer.value = 30; // reset time
   interval = window.setInterval(async () => {
     timer.value--;
     if (timer.value <= 0) {
@@ -162,11 +111,11 @@ watch(
   () => props.question,
   (newQ, oldQ) => {
     if (newQ && newQ !== oldQ) {
-      startTimer(); // 每次换问题就重置
+      startTimer(); // reset when question change
       hasVoted.value = false;
     }
   },
-  { immediate: true } // 初始也要跑一次
+  { immediate: true } // run when initialize
 );
 
 onUnmounted(() => {
@@ -175,7 +124,7 @@ onUnmounted(() => {
 
 // Fetch live results
 async function calculateResults() {
-  // 1. 拿到当前问题的所有投票
+  // 1. find voted in this questions
   const { data: answers, error } = await supabase
     .from("live_poll_answers")
     .select("selected_option")
@@ -186,32 +135,32 @@ async function calculateResults() {
     return;
   }
 
-  // 2. 统计票数
+  // 2. find all votes
   const counts: Record<"A" | "B", number> = { A: 0, B: 0 };
   answers.forEach((a) => {
     counts[a.selected_option as "A" | "B"]++;
   });
 
-  // 3. 判定赢家 (可能平票)
+  // 3. find who won
   let winningOption: "A" | "B";
   if (counts.A > counts.B) {
     winningOption = "A";
   } else if (counts.B > counts.A) {
     winningOption = "B";
   } else {
-    // 平票情况随机选一个
+    // random when draw
     winningOption = Math.random() > 0.5 ? "A" : "B";
   }
 
-  // 4. 查 winningOption 对应的 tags
+  // check the option => which options
   const winningTags =
     winningOption === "A"
       ? props.question.option_a_tags
       : props.question.option_b_tags;
 
-  // 5. 判断是直接选 proposal 还是进入下一题
+  // 5. check if it left the last proposal
   if (winningTags.length === 1) {
-    // ✅ 已经剩下唯一 proposal
+    // left one proposal
     const { data: proposal, error: proposalError } = await supabase
       .from("canvas_proposals")
       .select("*")
@@ -237,22 +186,23 @@ async function calculateResults() {
       })
       .eq("id", props.question.canvas_id);
 
-    // 可以 emit 给父组件，显示结果
+    // emit to parent components
     generateItineracy();
+    alert("the final decision is to the " + proposal.cities);
 
     if (error) {
-      console.error("❌ Supabase update error:", error);
+      console.error("Supabase update error:", error);
     }
     emit("finalProposal", proposal);
   } else {
-    // ✅ 还有多个候选，需要进入下一题
+    // still have more than one proposal
     hasVoted.value = false;
     const { data: nextQuestion, error: nextError } = await supabase
       .from("decision_tree_questions")
       .select("*")
       .eq("canvas_id", props.question.canvas_id)
-      .eq("level", props.question.level + 1) // 下一级
-      .eq("parent_option", winningOption) // 刚刚赢的分支
+      .eq("level", props.question.level + 1) // go to next level
+      .eq("parent_option", winningOption) // find the branch
       .single();
 
     if (nextError) {
@@ -260,7 +210,7 @@ async function calculateResults() {
       return;
     }
 
-    // 更新状态：当前问题变 inactive，下一题 active
+    // turn the question to be completed, next question be active
     await supabase
       .from("decision_tree_questions")
       .update({ status: "completed" })

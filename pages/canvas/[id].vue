@@ -93,7 +93,7 @@
 
   <!-- Final Proposal -->
   <div v-else-if="finalProposal" class="p-6 text-center">
-    <h2 class="text-3xl font-bold mb-4">🎉 Final Proposal Selected!</h2>
+    <h2 class="text-3xl font-bold mb-4">Final Proposal Selected!</h2>
     <h3 class="text-2xl font-semibold mb-2">{{ finalProposal.tag }}</h3>
     <p class="text-lg mb-2">{{ finalProposal.description }}</p>
     <ul class="flex flex-wrap justify-center space-x-3">
@@ -111,8 +111,9 @@
 <script setup lang="ts">
 import type { Database } from "~/types/database.types";
 
+//default layouts
 definePageMeta({
-  layout: "default", // Apply our default layout
+  layout: "default",
 });
 
 // State management
@@ -184,12 +185,12 @@ async function ensureCanvasExists() {
     return;
   }
 
-  // 1. Check if the canvas exists
+  // 1. check if the canvas exists
   const { data: canvas, error: fetchError } = await supabase
     .from("canvases")
     .select("id")
     .eq("id", canvasId)
-    .single(); // .single() returns null instead of an empty array if not found
+    .single();
 
   if (fetchError && fetchError.code !== "PGRST116") {
     // Ignore 'PGRST116' (not found error)
@@ -200,7 +201,7 @@ async function ensureCanvasExists() {
   if (!canvas) {
     const { error: insertError } = await supabase.from("canvases").insert({
       id: canvasId,
-      name: "My Demo Canvas", // You can make this dynamic later
+      name: "My Demo Canvas",
       owner_id: user.value.id,
     });
 
@@ -208,11 +209,12 @@ async function ensureCanvasExists() {
   }
 }
 
+//fetch canvas items
 async function fetchData() {
   isInitialLoading.value = true;
   errorMsg.value = "";
   try {
-    // Fetch items and collaborators in parallel
+    // fetch items and collaborators in parallel
     const [itemsResult, collaboratorsResult] = await Promise.all([
       supabase
         .from("canvas_items")
@@ -276,7 +278,7 @@ async function handleFileUpload(file: File) {
   }
 
   try {
-    // Call Python backend
+    // Call python inspire from image
     const aiResponse = await $fetch<any>(
       `${config.public.apiBaseUrl}/api/v1/inspire-from-image`,
       {
@@ -285,7 +287,7 @@ async function handleFileUpload(file: File) {
       }
     );
 
-    // --- 3. Insert the AI response into Supabase ---
+    //insert the AI response into Supabase
     for (const dest of aiResponse) {
       const exists = items.value.some(
         (item) => item.content.title === dest.content.title
@@ -307,7 +309,7 @@ async function handleFileUpload(file: File) {
       if (insertError) {
         console.error("Insert error:", insertError);
       } else {
-        // 可选：更新本地 items
+        // update local items
         items.value.push(newItem);
       }
     }
@@ -434,7 +436,6 @@ const collabChannel = supabase
       filter: `canvas_id=eq.${canvasId}`,
     },
     (payload) => {
-      // fetchCollaboratorsCount();
       fetchData();
     }
   )
@@ -494,7 +495,7 @@ onMounted(async () => {
     updateOwnerActivate();
   }
 
-  // 2. 订阅 canvas 更新
+  // 2. listen to canvas
   const channel = supabase
     .channel(`canvas-${canvasId}`)
     .on(

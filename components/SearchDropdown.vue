@@ -8,7 +8,7 @@
       placeholder="Search item..."
       class="w-full border rounded-lg px-3 py-2 text-gray-700 bg-white shadow-sm"
     />
-    <!-- 下拉框 -->
+    <!-- dropdown col-->
     <div
       v-if="dropdownOpen && filteredOptions.length > 0"
       class="absolute mt-1 w-full bg-white border rounded-lg shadow-lg z-10 max-h-48 overflow-y-auto"
@@ -59,7 +59,7 @@ const dummyOptions = [
   },
 ];
 
-// 过滤
+// filter the options based on search query
 const filteredOptions = computed(() =>
   dummyOptions.filter(
     (item) =>
@@ -68,7 +68,7 @@ const filteredOptions = computed(() =>
   )
 );
 
-// 点击外面关闭
+// close the dropdown when click outside
 function handleClickOutside(event: MouseEvent) {
   if (dropdownRef.value && !dropdownRef.value.contains(event.target as Node)) {
     dropdownOpen.value = false;
@@ -77,7 +77,7 @@ function handleClickOutside(event: MouseEvent) {
 onMounted(() => document.addEventListener("click", handleClickOutside));
 onUnmounted(() => document.removeEventListener("click", handleClickOutside));
 
-// 选择第一个匹配（回车用）
+//match the first match in dropdown (by type enter)
 function selectFirstMatch(dayKey: string) {
   if (filteredOptions.value.length > 0) {
     emit("addDummy", dayKey, filteredOptions.value[0]);
@@ -86,7 +86,7 @@ function selectFirstMatch(dayKey: string) {
   }
 }
 
-// 点击选项（鼠标用）
+// click using mouse
 function selectItem(item: any) {
   emit("addDummy", props.dayKey, item);
   searchQuery.value = "";
