@@ -22,6 +22,7 @@ export type Database = {
           id: number
           role: string
           user_id: string
+          voted_location_ids: string[] | null
         }
         Insert: {
           budget?: number | null
@@ -30,6 +31,7 @@ export type Database = {
           id?: number
           role?: string
           user_id: string
+          voted_location_ids?: string[] | null
         }
         Update: {
           budget?: number | null
@@ -38,6 +40,7 @@ export type Database = {
           id?: number
           role?: string
           user_id?: string
+          voted_location_ids?: string[] | null
         }
         Relationships: [
           {
@@ -87,26 +90,152 @@ export type Database = {
           },
         ]
       }
+      canvas_proposals: {
+        Row: {
+          canvas_id: string
+          cities: string[]
+          description: string | null
+          id: string
+          tag: string
+        }
+        Insert: {
+          canvas_id: string
+          cities: string[]
+          description?: string | null
+          id?: string
+          tag: string
+        }
+        Update: {
+          canvas_id?: string
+          cities?: string[]
+          description?: string | null
+          id?: string
+          tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_proposals_canvas_id_fkey"
+            columns: ["canvas_id"]
+            isOneToOne: false
+            referencedRelation: "canvases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       canvases: {
         Row: {
           created_at: string
+          final_budget_per_day: number | null
+          final_itinerary: Json | null
+          final_location_ids: string[] | null
+          final_proposal: Json | null
+          final_total_days: number | null
           id: string
           name: string
           owner_id: string
         }
         Insert: {
           created_at?: string
+          final_budget_per_day?: number | null
+          final_itinerary?: Json | null
+          final_location_ids?: string[] | null
+          final_proposal?: Json | null
+          final_total_days?: number | null
           id?: string
           name: string
           owner_id: string
         }
         Update: {
           created_at?: string
+          final_budget_per_day?: number | null
+          final_itinerary?: Json | null
+          final_location_ids?: string[] | null
+          final_proposal?: Json | null
+          final_total_days?: number | null
           id?: string
           name?: string
           owner_id?: string
         }
         Relationships: []
+      }
+      decision_tree_questions: {
+        Row: {
+          canvas_id: string
+          id: string
+          level: number
+          option_a_tags: string[]
+          option_a_text: string
+          option_b_tags: string[]
+          option_b_text: string
+          parent_option: string | null
+          question_text: string
+          status: string
+        }
+        Insert: {
+          canvas_id: string
+          id?: string
+          level: number
+          option_a_tags: string[]
+          option_a_text: string
+          option_b_tags: string[]
+          option_b_text: string
+          parent_option?: string | null
+          question_text: string
+          status?: string
+        }
+        Update: {
+          canvas_id?: string
+          id?: string
+          level?: number
+          option_a_tags?: string[]
+          option_a_text?: string
+          option_b_tags?: string[]
+          option_b_text?: string
+          parent_option?: string | null
+          question_text?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "decision_tree_questions_canvas_id_fkey"
+            columns: ["canvas_id"]
+            isOneToOne: false
+            referencedRelation: "canvases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      live_poll_answers: {
+        Row: {
+          created_at: string
+          id: string
+          question_id: string
+          selected_option: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          question_id: string
+          selected_option: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          question_id?: string
+          selected_option?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_poll_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "decision_tree_questions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {

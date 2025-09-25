@@ -1,5 +1,10 @@
 <template>
-  <div>
+  <ItineraryPlanner
+    v-if="itinerary"
+    :canvas-id="canvasId"
+    :itinerary="itinerary"
+  />
+  <div v-else>
     <div class="relative">
       <span
         v-if="copied"
@@ -11,9 +16,12 @@
     <CanvasToolbar
       :selection-count="selectedItems.length"
       :is-loading="isLoading"
-      :collaborators-count="collaboratorsCount"
-      @generate-poll="generatePoll"
+      :has-submitted="currentUserSubmission !== null"
+      :collaborators="collaborators"
+      :canActivate="canActivate"
       @open-invite-modal="showInviteModal = true"
+      @submit-selection="handleSubmitSelection"
+      @open-poll-modal="fetchActiveQuestion"
     />
 
     <ImageUploader :is-loading="isLoading" @file-uploaded="handleFileUpload" />
@@ -25,6 +33,7 @@
 
     <CanvasGrid
       v-model:items="items"
+      :is-locked="isSelectionLocked"
       :selected-items="selectedItems"
       @order-changed="onDragEnd"
       @item-toggled="toggleSelection"
@@ -73,6 +82,30 @@
       </div>
     </div>
   </div>
+  <!-- Active Question -->
+  <LivePoll
+    v-if="activeQuestion"
+    :question="activeQuestion"
+    :total-participants="collaborators.length"
+    @nextQuestion="handleNextQuestion"
+    @finalProposal="handleFinalProposal"
+  />
+
+  <!-- Final Proposal -->
+  <div v-else-if="finalProposal" class="p-6 text-center">
+    <h2 class="text-3xl font-bold mb-4">🎉 Final Proposal Selected!</h2>
+    <h3 class="text-2xl font-semibold mb-2">{{ finalProposal.tag }}</h3>
+    <p class="text-lg mb-2">{{ finalProposal.description }}</p>
+    <ul class="flex flex-wrap justify-center space-x-3">
+      <li
+        v-for="city in finalProposal.cities"
+        :key="city"
+        class="px-4 py-2 bg-gray-800 rounded text-white"
+      >
+        {{ city }}
+      </li>
+    </ul>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -101,9 +134,39 @@ const user = useSupabaseUser();
 const canvasId = route.params.id as string;
 const copied = ref(false);
 
+const collaborators = ref<any[]>([]);
+const currentUserSubmission = ref<any | null>(null);
+
+const finalProposal = ref<any | null>(null);
+
+const itinerary = ref(null);
+
+onMounted(async () => {
+  const { data } = await supabase
+    .from("canvases")
+    .select("final_itinerary")
+    .eq("id", canvasId)
+    .single();
+
+  if (data?.final_itinerary) {
+    console.log(data.final_itinerary);
+    itinerary.value = JSON.parse(JSON.stringify(data.final_itinerary));
+  }
+});
+
+const isSelectionLocked = computed(() => {
+  return (
+    currentUserSubmission.value !== null &&
+    currentUserSubmission.value.voted_location_ids?.length > 0
+  );
+});
+
 function toggleSelection(item: any) {
   // Only allow selecting 'destination_idea' cards for polls
   if (item.type !== "destination_idea") return;
+  if (isSelectionLocked.value) {
+    return;
+  }
 
   const itemId = item.id;
   const index = selectedItems.value.indexOf(itemId);
@@ -147,49 +210,63 @@ async function ensureCanvasExists() {
   }
 }
 
-// --- 1. Fetch existing items when the page loads ---
-async function fetchItems() {
+async function fetchData() {
+  isInitialLoading.value = true;
+  errorMsg.value = "";
   try {
-    isInitialLoading.value = true;
-    const { data, error } = await supabase
-      .from("canvas_items")
-      .select("*")
-      .eq("canvas_id", canvasId)
-      .order("position", { ascending: true });
+    // Fetch items and collaborators in parallel
+    console.log(canvasId);
+    const [itemsResult, collaboratorsResult] = await Promise.all([
+      supabase
+        .from("canvas_items")
+        .select("*")
+        .eq("canvas_id", canvasId)
+        .order("position"),
+      supabase
+        .from("canvas_collaborators")
+        .select("*")
+        .eq("canvas_id", canvasId),
+    ]);
 
-    if (error) throw error;
-    items.value = data || [];
-  } catch (error: any) {
-    errorMsg.value = `Error fetching items: ${error.message}`;
+    if (itemsResult.error) throw itemsResult.error;
+    items.value = itemsResult.data || [];
+
+    if (collaboratorsResult.error) throw collaboratorsResult.error;
+    collaborators.value = collaboratorsResult.data || [];
+    console.log(itemsResult.data, "ss");
+
+    const userIds = collaborators.value.map((c) => c.user_id);
+    if (userIds.length > 0) {
+      const { data: usersData, error: usersError } = await supabase
+        .from("users")
+        .select("id, email")
+        .in("id", userIds);
+
+      if (usersError) throw usersError;
+
+      // Map emails back to the collaborators array
+      collaborators.value = collaborators.value.map((collab) => {
+        const userProfile = usersData.find((u) => u.id === collab.user_id);
+        return { ...collab, email: userProfile?.email || "unknown user" };
+      });
+    }
+
+    // Find the current user's submission data
+    currentUserSubmission.value =
+      collaborators.value.find(
+        (c) => c.user_id === user.value?.id && c.budget !== null
+      ) || null;
+
+    if (isSelectionLocked.value) {
+      selectedItems.value = currentUserSubmission.value.voted_location_ids;
+    }
+  } catch (err: any) {
+    errorMsg.value = `Error fetching data: ${err.message}`;
+  } finally {
+    isInitialLoading.value = false;
   }
 }
 
-const collaboratorsCount = ref(0);
-
-async function fetchCollaboratorsCount() {
-  try {
-    const { data, error } = await supabase
-      .from("canvas_collaborators")
-      .select("user_id", { count: "exact" })
-      .eq("canvas_id", canvasId);
-
-    if (error) throw error;
-
-    collaboratorsCount.value = data?.length;
-  } catch (error: any) {
-    console.error("Failed to fetch collaborators:", error.message);
-  }
-}
-
-onMounted(async () => {
-  try {
-    await ensureCanvasExists();
-    await fetchItems();
-    await fetchCollaboratorsCount();
-  } catch (error: any) {
-    errorMsg.value = `Failed to initialize canvas: ${error.message}`;
-  }
-});
 // --- 2. Handle the file upload and AI processing ---
 async function handleFileUpload(file: File) {
   isLoading.value = true;
@@ -302,6 +379,71 @@ async function handleFileUpload(file: File) {
   }
 }
 
+const triggerDecisionTree = async () => {
+  isLoading.value = true;
+  errorMsg.value = "";
+  console.log("triggered");
+
+  try {
+    const res = await $fetch("/api/process-final-submission", {
+      method: "POST",
+      body: { canvas_id: canvasId },
+    });
+  } catch (err: any) {
+    errorMsg.value = `Failed to start vote: ${err.message || err}`;
+  } finally {
+    isLoading.value = false;
+  }
+};
+async function handleSubmitSelection(payload: {
+  budget: number;
+  days: number;
+}) {
+  if (!user.value) return;
+
+  isLoading.value = true; // Use the general loading state
+  errorMsg.value = "";
+
+  try {
+    const { data, error } = await supabase
+      .from("canvas_collaborators")
+      .update({
+        budget: payload.budget,
+        days: payload.days,
+        voted_location_ids: selectedItems.value,
+      })
+      .eq("canvas_id", canvasId)
+      .eq("user_id", user.value.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    console.log(data);
+    currentUserSubmission.value = data;
+    const index = collaborators.value.findIndex(
+      (c) => c.user_id === user.value?.id
+    );
+    if (index !== -1) {
+      collaborators.value[index] = data;
+    }
+
+    const allHaveSubmitted = collaborators.value.every(
+      (c) => c.budget !== null && c.budget !== undefined
+    );
+    console.log(allHaveSubmitted);
+    console.log(collaborators.value);
+
+    if (allHaveSubmitted) {
+      triggerDecisionTree();
+    }
+  } catch (err: any) {
+    errorMsg.value = `Failed to submit vote: ${err.message}`;
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 async function onDragEnd() {
   const updates = items.value.map((item, index) =>
     supabase.from("canvas_items").update({ position: index }).eq("id", item.id)
@@ -311,15 +453,142 @@ async function onDragEnd() {
     await Promise.all(updates);
   } catch (error: any) {
     errorMsg.value = `Failed to save new order: ${error.message}`;
-    await fetchItems();
   }
 }
 
 let channel: any = null;
 
-onMounted(async () => {
-  await fetchItems();
+function closeInviteModal() {
+  showInviteModal.value = false;
+  inviteEmail.value = "";
+  inviteError.value = "";
+}
 
+async function handleInvite() {
+  if (!inviteEmail.value.trim() || !canvasId) return;
+
+  isInviting.value = true;
+  inviteError.value = "";
+
+  try {
+    await $fetch("/api/invite-user", {
+      method: "POST",
+      body: {
+        canvas_id: canvasId,
+        email: inviteEmail.value.trim(),
+      },
+    });
+
+    // Success!
+    alert(`Invitation sent!`);
+    closeInviteModal();
+  } catch (error: any) {
+    inviteError.value = error.message;
+  } finally {
+    isInviting.value = false;
+  }
+}
+
+const collabChannel = supabase
+  .channel(`canvas-collaborators-${canvasId}`)
+  .on(
+    "postgres_changes",
+    {
+      event: "*",
+      schema: "public",
+      table: "canvas_collaborators",
+      filter: `canvas_id=eq.${canvasId}`,
+    },
+    (payload) => {
+      // fetchCollaboratorsCount();
+      fetchData();
+    }
+  )
+  .subscribe();
+
+// State
+const activeQuestion = ref<any | null>(null);
+
+async function fetchActiveQuestion() {
+  const { data } = await supabase
+    .from("decision_tree_questions")
+    .select("*")
+    .eq("canvas_id", canvasId)
+    .eq("level", 1)
+    .single();
+  if (!data) return;
+  console.log(data.id);
+  await supabase
+    .from("decision_tree_questions")
+    .update({ status: "active" })
+    .eq("id", data.id);
+  activeQuestion.value = data;
+}
+
+//activate question
+const canvas = ref<any>(null);
+const canOwnerActivate = ref(false);
+function updateOwnerActivate() {
+  canOwnerActivate.value =
+    user.value?.id === canvas.value.owner_id &&
+    canvas.value.final_proposal !== null &&
+    canvas.value.final_location_ids === null;
+}
+
+const canActivate = computed(() => canOwnerActivate.value);
+
+onMounted(async () => {
+  try {
+    await ensureCanvasExists();
+    await fetchData();
+  } catch (error: any) {
+    errorMsg.value = `Failed to initialize canvas: ${error.message}`;
+  }
+});
+
+onMounted(async () => {
+  // 1. canvas current state
+  const { data: canvasData, error } = await supabase
+    .from("canvases")
+    .select("*")
+    .eq("id", canvasId)
+    .single();
+
+  if (error) {
+    console.error("Failed to fetch canvas:", error);
+  } else {
+    canvas.value = canvasData;
+    updateOwnerActivate();
+  }
+
+  // 2. 订阅 canvas 更新
+  const channel = supabase
+    .channel(`canvas-${canvasId}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "canvases",
+        filter: `id=eq.${canvasId}`,
+      },
+      (payload) => {
+        console.log("Canvas updated:", payload);
+        canvas.value = payload.new;
+        updateOwnerActivate();
+        if (canvas.value.finalProposal) {
+          activeQuestion.value = null;
+          finalProposal.value = canvas.value.finalProposal;
+        }
+        if (canvas.value.itinerary) {
+          itinerary.value = canvas.value.itinerary;
+        }
+      }
+    )
+    .subscribe();
+});
+
+onMounted(async () => {
   channel = supabase
     .channel(`canvas-${canvasId}`)
     .on(
@@ -363,109 +632,52 @@ onMounted(async () => {
     .subscribe();
 });
 
-// --- NEW: GENERATE POLL FUNCTION ---
-async function generatePoll() {
-  if (selectedItems.value.length !== 2) return;
-
-  isLoading.value = true;
-  errorMsg.value = "";
-
-  try {
-    const optionA_full = items.value.find(
-      (i) => i.id === selectedItems.value[0]
-    );
-    const optionB_full = items.value.find(
-      (i) => i.id === selectedItems.value[1]
-    );
-
-    if (!optionA_full || !optionB_full)
-      throw new Error("Selected items not found.");
-
-    // Call our new backend endpoint
-    const pollContent = await $fetch<any>(
-      `${config.public.apiBaseUrl}/api/v1/generate-poll`,
+onMounted(() => {
+  const questionChannel = supabase
+    .channel(`canvas-${canvasId}-questions`)
+    .on(
+      "postgres_changes",
       {
-        method: "POST",
-        body: {
-          optionA: optionA_full.content,
-          optionB: optionB_full.content,
-        },
-      }
-    );
-
-    // Insert the new poll card into Supabase
-    const { error: insertError } = await supabase.from("canvas_items").insert({
-      canvas_id: canvasId,
-      type: "poll", // The new card type!
-      content: pollContent,
-      created_by: user.value?.id || "",
-      position: items.value.length,
-    });
-
-    if (insertError) throw insertError;
-
-    // Clear selection after poll is created
-    selectedItems.value = [];
-
-    // Realtime will handle adding the poll to the UI for everyone
-  } catch (error: any) {
-    errorMsg.value = `Failed to create poll: ${error.message}`;
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-function closeInviteModal() {
-  showInviteModal.value = false;
-  inviteEmail.value = "";
-  inviteError.value = "";
-}
-
-async function handleInvite() {
-  if (!inviteEmail.value.trim() || !canvasId) return;
-
-  isInviting.value = true;
-  inviteError.value = "";
-
-  try {
-    const response = await $fetch("/api/invite-user", {
-      method: "POST",
-      body: {
-        canvas_id: canvasId,
-        email: inviteEmail.value.trim(),
+        event: "UPDATE",
+        schema: "public",
+        table: "decision_tree_questions",
       },
+      (payload) => {
+        const updatedQuestion = payload.new;
+
+        if (updatedQuestion.status === "active") {
+          activeQuestion.value = updatedQuestion;
+          finalProposal.value = null;
+        } else if (updatedQuestion.status === "finished") {
+          activeQuestion.value = null;
+        }
+      }
+    )
+    .subscribe((status, err) => {
+      if (status === "SUBSCRIBED") {
+        console.log(
+          `Successfully subscribed to questions for canvas ${canvasId}!`
+        );
+      }
+      if (status === "CHANNEL_ERROR") {
+        console.error("Channel error:", err);
+      }
     });
-
-    // Success!
-    alert(`Invitation sent!`);
-    closeInviteModal();
-  } catch (error: any) {
-    inviteError.value = error.message;
-  } finally {
-    isInviting.value = false;
-  }
-}
-
-const collabChannel = supabase
-  .channel(`canvas-collaborators-${canvasId}`)
-  .on(
-    "postgres_changes",
-    {
-      event: "*",
-      schema: "public",
-      table: "canvas_collaborators",
-      filter: `canvas_id=eq.${canvasId}`,
-    },
-    (payload) => {
-      fetchCollaboratorsCount();
-    }
-  )
-  .subscribe();
+});
 
 onUnmounted(() => {
   if (channel) {
     supabase.removeChannel(channel);
-    if (collabChannel) supabase.removeChannel(collabChannel);
   }
+  if (collabChannel) supabase.removeChannel(collabChannel);
 });
+
+function handleNextQuestion(nextQuestion: any) {
+  activeQuestion.value = nextQuestion;
+}
+
+function handleFinalProposal(proposal: any) {
+  activeQuestion.value = null;
+  finalProposal.value = proposal;
+}
 </script>

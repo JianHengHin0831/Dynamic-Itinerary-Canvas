@@ -2,6 +2,7 @@
   <div
     :class="[
       'rounded-lg overflow-hidden flex flex-col cursor-pointer transition-all duration-200',
+      isLocked ? 'cursor-default opacity-75' : 'cursor-pointer',
       isSelected
         ? 'ring-4 ring-indigo-500 shadow-2xl'
         : 'shadow-lg hover:shadow-xl',
@@ -41,7 +42,10 @@
         </div>
       </div>
       <div
-        class="bg-gray-50 p-2 flex justify-center items-center cursor-move drag-handle"
+        :class="[
+          'bg-gray-50 p-2 flex justify-center items-center',
+          isLocked ? 'cursor-not-allowed' : 'cursor-move drag-handle',
+        ]"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -88,5 +92,6 @@ defineProps({
     type: Boolean,
     default: false,
   },
+  isLocked: { type: Boolean, default: false },
 });
 </script>

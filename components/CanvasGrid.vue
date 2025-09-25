@@ -13,6 +13,7 @@
         :item="item"
         :isSelected="selectedItems.includes(item.id)"
         @click="$emit('item-toggled', item)"
+        :is-locked="isLocked"
       />
     </template>
   </draggable>
@@ -30,6 +31,7 @@ defineProps({
     type: Array,
     required: true,
   },
+  isLocked: { type: Boolean, default: false },
 });
 
 defineEmits(["update:items", "order-changed", "item-toggled"]);
