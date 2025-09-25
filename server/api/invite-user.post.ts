@@ -6,6 +6,7 @@ interface InviteRequest {
   email: string;
 }
 
+//invite other users into our canvas
 export default defineEventHandler(async (event) => {
   try {
     const body: InviteRequest = await readBody(event);

@@ -166,7 +166,7 @@ const isCreating = ref(false); // For the create button
 const editingCanvas = ref<Canvas | null>(null);
 const editingName = ref("");
 
-// --- DATA FETCHING ---
+//fetch data in canvases
 async function fetchCanvases() {
   try {
     isLoading.value = true;
@@ -184,7 +184,6 @@ async function fetchCanvases() {
   }
 }
 
-// Fetch canvases when the component is mounted
 onMounted(() => {
   fetchCanvases();
 });
@@ -197,7 +196,7 @@ async function createAndGoToCanvas() {
   const { data, error } = await supabase
     .from("canvases")
     .insert({
-      name: `My New Trip - ${new Date().toLocaleDateString()}`,
+      name: `My New Trip - ${new Date().toLocaleDateString()}`, // initialize first, can change later in home page
       owner_id: user.value.id,
     })
     .select("id")
@@ -225,7 +224,7 @@ async function createAndGoToCanvas() {
   }
 
   if (data) {
-    // We don't need to manually refresh the list, just go to the new page
+    // go to the new page
     router.push(`/canvas/${data.id}`);
   }
   isCreating.value = false;
@@ -246,12 +245,11 @@ async function updateCanvasName() {
     .select();
 
   if (error) {
-    // This will now catch database-level errors more reliably
+    // catch database-level errors
     alert(`Error updating name: ${error.message}`);
-    return; // Stop execution
+    return;
   }
 
-  // Check if any rows were actually updated. If RLS blocks it, data will be an empty array.
   if (!data || data.length === 0) {
     alert(
       "Update failed. You might not have the required permissions. Please refresh and try again."
@@ -259,7 +257,6 @@ async function updateCanvasName() {
     return;
   }
 
-  // Optimistic UI update only on success
   const index = canvases.value.findIndex(
     (c) => c.id === editingCanvas.value!.id
   );
@@ -269,7 +266,8 @@ async function updateCanvasName() {
   editingCanvas.value = null;
   editingName.value = "";
 }
-// --- NEW: DELETE LOGIC ---
+
+// delete canvas function
 async function deleteCanvas(canvasId: string) {
   // Ask for confirmation
   if (

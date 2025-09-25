@@ -1,4 +1,3 @@
-// server/api/decision-tree/route.ts
 import { serverSupabaseClient } from "#supabase/server";
 import type { Database } from "~/types/database.types";
 import OpenAI from "openai";
@@ -80,14 +79,14 @@ Your response MUST be a single, valid JSON object with EXACTLY this structure:
 
 export default defineEventHandler(async (event) => {
   try {
-    // 1. 读取请求体
+    // 1. read body
     const body = await readBody<SubmissionRequest>(event);
     const { canvas_id } = body;
 
     if (!canvas_id) throw new Error("canvas_id is required");
     const client = await serverSupabaseClient<Database>(event);
 
-    // 3. 初始化 OpenAI
+    // 3.initialize OpenAI
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
     const { data: preferences, error: prefError } = await client
@@ -134,7 +133,7 @@ export default defineEventHandler(async (event) => {
       })),
     };
 
-    // 5. 调用 OpenAI
+    // 5. call OpenAI
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
       messages: [
@@ -148,15 +147,15 @@ export default defineEventHandler(async (event) => {
 
     const aiResult = JSON.parse(completion.choices[0].message.content || "");
 
-    // 6. 保存到数据库
-    // 清理旧数据
+    // 6. save to database
+    // remove old data
     await client
       .from("decision_tree_questions")
       .delete()
       .eq("canvas_id", canvas_id);
     await client.from("canvas_proposals").delete().eq("canvas_id", canvas_id);
 
-    // 插入新 proposals
+    // insert new proposals
     const proposalsToInsert = aiResult.proposals.map((p: any) => ({
       ...p,
       canvas_id,
@@ -167,7 +166,7 @@ export default defineEventHandler(async (event) => {
       .select();
     if (propError) throw propError;
 
-    // 插入新 questions
+    // insert new questions
     const questionsToInsert = aiResult.questions.map((q: any) => ({
       canvas_id,
       level: q.level,

@@ -63,16 +63,15 @@ const handleLogin = async () => {
       password: password.value,
     });
     if (error) throw error;
-    // The Supabase middleware will automatically redirect us on success.
-    // But we can add a manual redirect as a fallback.
+    // manually redirect to the homepage
     router.push("/");
   } catch (error: any) {
     errorMsg.value = error.message;
   }
 };
 
-// Optional: Redirect if already logged in
 const user = useSupabaseUser();
+
 watchEffect(() => {
   if (user.value) {
     router.push("/");

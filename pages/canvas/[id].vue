@@ -285,11 +285,6 @@ async function handleFileUpload(file: File) {
       }
     );
 
-    alert(
-      "The suggested locations are:\n " +
-        aiResponse.map((dest: any) => dest.content.title).join("\n ")
-    );
-
     // --- 3. Insert the AI response into Supabase ---
     for (const dest of aiResponse) {
       const exists = items.value.some(
@@ -420,8 +415,6 @@ async function handleInvite() {
       },
     });
 
-    // Success!
-    alert(`Invitation sent!`);
     closeInviteModal();
   } catch (error: any) {
     inviteError.value = error.message;

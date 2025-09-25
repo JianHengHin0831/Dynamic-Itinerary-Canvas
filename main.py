@@ -32,7 +32,7 @@ app.add_middleware(
 @app.post("/api/v1/inspire-from-image")
 async def inspire_from_image(image: UploadFile = File(...)):
     """
-    接收一张图片，使用 GPT-4 Vision 分析，并返回一个结构化的旅行灵感 JSON。
+    receive one image, analyze using GPT-4o, return structural JSON
     """
     # 1. read and encode image
     try:

@@ -118,7 +118,6 @@ async function saveItinerary() {
   if (error) {
     console.error("Save failed:", error);
   } else {
-    alert("Saved successfully!");
   }
 }
 

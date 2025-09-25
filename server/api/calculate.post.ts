@@ -6,7 +6,7 @@ export default defineEventHandler(async (event) => {
 
   const { question_id } = body;
 
-  // 获取问题和投票
+  // get question and vote
   const { data: question } = await client
     .from("decision_tree_questions")
     .select("*")
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
 
   if (!question) return { error: "Question not found" };
 
-  // 统计
+  //calculate which option more people vote
   const counts: Record<string, number> = {};
   votes?.forEach((v: any) => {
     const tags =

@@ -47,6 +47,7 @@ interface SubmissionRequest {
   canvasId: string;
 }
 
+//generate itinerary after confirm the destination
 export default defineEventHandler(async (event) => {
   const body = await readBody<SubmissionRequest>(event);
 

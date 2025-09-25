@@ -284,5 +284,4 @@ const generateItineracy = async () => {
     alert(`Failed to start vote: ${err.message || err}`);
   }
 };
-generateItineracy();
 </script>

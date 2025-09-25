@@ -4,6 +4,7 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// ai suggestion to the itinerary
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event);
