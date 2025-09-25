@@ -1,75 +1,62 @@
-# Nuxt Minimal Starter
+# Dynamic Itinerary Canvas (CanvasX)
 
-Look at the [Nuxt documentation](https://nuxt.com/docs/getting-started/introduction) to learn more.
+**A real-time collaborative travel planning tool with AI-assisted itinerary generation**  
 
-## Setup
+---
 
-Make sure to install dependencies:
+## Project Overview
 
-```bash
-# npm
-npm install
+CanvasX is a **real-time collaborative travel planning application**, developed as part of the **TRAVEL-WIZARD Feature Innovation Challenge**.  
 
-# pnpm
-pnpm install
+It enables group travelers to:  
 
-# yarn
-yarn install
+- Visualize and plan their trips on a dynamic "itinerary canvas."  
+- Collaborate in real-time with friends or family.  
+- Receive AI-assisted recommendations for destinations, hotels, restaurants, and attractions.  
+- Vote on options and automatically generate optimized itineraries.  
+- Adjust and rearrange the itinerary with drag-and-drop functionality.  
 
-# bun
-bun install
-```
+**Goal:** Simplify group travel planning while leveraging AI for creative, personalized suggestions.  
 
-## Development Server
+---
 
-Start the development server on `http://localhost:3000`:
+## Features
 
-```bash
-# npm
-npm run dev
+- **Dynamic Itinerary Canvas:** Collaborative, real-time drag-and-drop planning.  
+- **AI Suggestions:** Automatically generates itinerary recommendations based on group preferences, budget, and number of days.  
+- **Voting & Decision Tree:** Quick group voting on destinations; AI interprets results to refine recommendations.  
+- **Interactive Cards:** Each item (hotel, restaurant, location) has its own card with placeholder image and link.  
+- **Multi-modal Discovery:** Upload photos to discover destinations with similar vibes.  
+- **Real-time Updates:** Supabase-powered updates ensure all participants see changes instantly.  
 
-# pnpm
-pnpm dev
+---
 
-# yarn
-yarn dev
+## Demo
 
-# bun
-bun run dev
-```
+*(Insert screenshots or GIFs here)*  
 
-## Production
+1. Create a new travel canvas and invite group members.  
+2. Add budget, number of days, and select preferred destinations.  
+3. AI generates a set of proposals and decision tree questions.  
+4. Group votes and final itinerary is automatically created.  
+5. Drag-and-drop items to adjust the itinerary and request AI suggestions for optimization.  
 
-Build the application for production:
+---
 
-```bash
-# npm
-npm run build
+## Technology Stack
 
-# pnpm
-pnpm build
+- **Frontend:** Nuxt.js 3, Vue.js, Tailwind CSS  
+- **Backend:** Supabase (PostgreSQL, Realtime DB, Auth, Edge Functions)  
+- **AI Service:** Python FastAPI server for OpenAI GPT-4o/Vision integration  
+- **Other:** vuedraggable for drag-and-drop interactions  
 
-# yarn
-yarn build
+---
 
-# bun
-bun run build
-```
+## Future Improvements
 
-Locally preview production build:
+- Handle more edge cases and provide full real-world data for hotels, restaurants, and locations.  
+- Add user accounts with history and saved itineraries.  
+- Improve AI recommendation engine with richer multi-modal input.  
+- Deploy a production-ready hosted version with optimized performance.  
 
-```bash
-# npm
-npm run preview
-
-# pnpm
-pnpm preview
-
-# yarn
-yarn preview
-
-# bun
-bun run preview
-```
-
-Check out the [deployment documentation](https://nuxt.com/docs/getting-started/deployment) for more information.
+---
