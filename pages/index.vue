@@ -238,7 +238,6 @@ function openEditModal(canvas: Canvas) {
 
 async function updateCanvasName() {
   if (!editingCanvas.value || !editingName.value.trim()) return;
-  console.log(editingCanvas.value.id, user.value?.id);
 
   const { data, error } = await supabase
     .from("canvases")
@@ -267,7 +266,6 @@ async function updateCanvasName() {
   if (index !== -1 && canvases.value[index]) {
     canvases.value[index].name = editingName.value.trim();
   }
-  console.log(canvases.value[index], "ss");
   editingCanvas.value = null;
   editingName.value = "";
 }
@@ -288,7 +286,8 @@ async function deleteCanvas(canvasId: string) {
     alert(`Error deleting canvas: ${error.message}`);
   } else {
     // Remove from local state for an instant UI change
-    canvases.value = canvases.value.filter((c) => c.id !== canvasId);
+    // @ts-ignore
+    canvases.value = canvases.value.filter((c: any) => c.id !== canvasId);
   }
 }
 </script>

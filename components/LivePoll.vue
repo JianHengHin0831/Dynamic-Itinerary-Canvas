@@ -137,9 +137,7 @@ async function checkAllVoted() {
     .eq("question_id", props.question.id);
 
   // 2. 查总人数 (这里假设你能拿到 totalParticipants)
-  const totalParticipants = props.totalParticipants; // 父组件传进来
-  console.log(totalParticipants);
-  console.log(count);
+  const totalParticipants = props.totalParticipants;
   if (count === totalParticipants) {
     clearInterval(interval);
     await calculateResults();
@@ -231,10 +229,6 @@ async function calculateResults() {
       .update({ status: "finished" })
       .eq("id", props.question.id);
 
-    console.log("🎉 Final Proposal Selected:", proposal);
-
-    // 更新 canvases 表，保存最终提案
-    console.log(proposal, proposal.cities, props.question.canvas_id);
     const { error } = await supabase
       .from("canvases")
       .update({
@@ -248,10 +242,7 @@ async function calculateResults() {
 
     if (error) {
       console.error("❌ Supabase update error:", error);
-    } else {
-      console.log("✅ Update success");
     }
-
     emit("finalProposal", proposal);
   } else {
     // ✅ 还有多个候选，需要进入下一题
@@ -268,8 +259,6 @@ async function calculateResults() {
       console.error("Error fetching next question:", nextError);
       return;
     }
-
-    console.log("➡️ Next Question:", nextQuestion);
 
     // 更新状态：当前问题变 inactive，下一题 active
     await supabase

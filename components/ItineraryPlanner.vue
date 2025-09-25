@@ -123,7 +123,6 @@ async function saveItinerary() {
 }
 
 function removeItem(dayKey: string, item: any) {
-  console.log("removing");
   localItinerary.value[dayKey].items = localItinerary.value[
     dayKey
   ].items.filter((i: any) => i.id !== item.id);
@@ -143,7 +142,6 @@ async function getAISuggestions() {
     });
 
     let parsed = response.suggestions;
-    console.log(parsed);
     if (typeof parsed === "string") {
       try {
         parsed = JSON.parse(parsed);

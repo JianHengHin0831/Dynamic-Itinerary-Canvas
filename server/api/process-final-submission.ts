@@ -180,7 +180,6 @@ export default defineEventHandler(async (event) => {
       status: q.level === "pending",
     }));
 
-    console.log(questionsToInsert);
     const { error: questError } = await client
       .from("decision_tree_questions")
       .insert(questionsToInsert);

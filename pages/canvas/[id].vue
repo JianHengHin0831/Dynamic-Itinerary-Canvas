@@ -149,7 +149,6 @@ onMounted(async () => {
     .single();
 
   if (data?.final_itinerary) {
-    console.log(data.final_itinerary);
     itinerary.value = JSON.parse(JSON.stringify(data.final_itinerary));
   }
 });
@@ -199,7 +198,6 @@ async function ensureCanvasExists() {
 
   // 2. If it doesn't exist, create it
   if (!canvas) {
-    console.log(`Canvas ${canvasId} not found, creating it...`);
     const { error: insertError } = await supabase.from("canvases").insert({
       id: canvasId,
       name: "My Demo Canvas", // You can make this dynamic later
@@ -215,7 +213,6 @@ async function fetchData() {
   errorMsg.value = "";
   try {
     // Fetch items and collaborators in parallel
-    console.log(canvasId);
     const [itemsResult, collaboratorsResult] = await Promise.all([
       supabase
         .from("canvas_items")
@@ -233,7 +230,6 @@ async function fetchData() {
 
     if (collaboratorsResult.error) throw collaboratorsResult.error;
     collaborators.value = collaboratorsResult.data || [];
-    console.log(itemsResult.data, "ss");
 
     const userIds = collaborators.value.map((c) => c.user_id);
     if (userIds.length > 0) {
@@ -280,69 +276,18 @@ async function handleFileUpload(file: File) {
   }
 
   try {
-    // Call our Python backend
-    // const aiResponse = await $fetch<any>(
-    //   `${config.public.apiBaseUrl}/api/v1/inspire-from-image`,
-    //   {
-    //     method: "POST",
-    //     body: formData,
-    //   }
-    // );
-    // console.log(aiResponse);
-    const aiResponse = [
+    // Call Python backend
+    const aiResponse = await $fetch<any>(
+      `${config.public.apiBaseUrl}/api/v1/inspire-from-image`,
       {
-        type: "destination_idea",
-        content: {
-          title: "Kuala Lumpur, Malaysia",
-          vibe: "Vibrant, Cosmopolitan, Modern",
-          description:
-            "Kuala Lumpur, the bustling capital of Malaysia, is a vibrant metropolis known for its modern skyline dominated by the iconic Petronas Twin Towers. This city offers a diverse cultural experience, bustling street markets, and a dynamic culinary scene, making it a truly cosmopolitan destination.",
-          suggested_activities: [
-            "Visit the Petronas Towers",
-            "Explore Batu Caves",
-            "Enjoy street food at Jalan Alor",
-            "Shop at Suria KLCC",
-          ],
-          image_url: "image_placeholder.png",
-        },
-      },
-      {
-        type: "destination_idea",
-        content: {
-          title: "Shanghai, China",
-          vibe: "Dynamic, Futuristic, Cultural",
-          description:
-            "Shanghai is a city where futuristic skyscrapers seamlessly blend with rich historical sites. The bustling vibe of the city is complemented by beautiful riverfronts, innovative architecture, and a vibrant arts scene, making it a hub of culture and modernity.",
-          suggested_activities: [
-            "Walk along the Bund",
-            "Visit Shanghai Tower",
-            "Explore Yu Garden",
-            "Discover French Concession",
-          ],
-          image_url: "image_placeholder.png",
-        },
-      },
-      {
-        type: "destination_idea",
-        content: {
-          title: "Dubai, UAE",
-          vibe: "Extravagant, Luxurious, Futuristic",
-          description:
-            "Dubai is a city known for its luxurious lifestyle, cutting-edge architecture, and extravagant attractions. From the awe-inspiring Burj Khalifa to the palm-shaped islands, Dubai offers a blend of modern wonders and rich cultural experiences.",
-          suggested_activities: [
-            "See Burj Khalifa",
-            "Shop at Dubai Mall",
-            "Explore Palm Jumeirah",
-            "Desert Safari",
-          ],
-          image_url: "image_placeholder.png",
-        },
-      },
-    ];
+        method: "POST",
+        body: formData,
+      }
+    );
 
     alert(
       "The suggested locations are:\n " +
-        aiResponse.map((dest) => dest.content.title).join("\n ")
+        aiResponse.map((dest: any) => dest.content.title).join("\n ")
     );
 
     // --- 3. Insert the AI response into Supabase ---
@@ -382,7 +327,6 @@ async function handleFileUpload(file: File) {
 const triggerDecisionTree = async () => {
   isLoading.value = true;
   errorMsg.value = "";
-  console.log("triggered");
 
   try {
     const res = await $fetch("/api/process-final-submission", {
@@ -401,7 +345,7 @@ async function handleSubmitSelection(payload: {
 }) {
   if (!user.value) return;
 
-  isLoading.value = true; // Use the general loading state
+  isLoading.value = true;
   errorMsg.value = "";
 
   try {
@@ -419,7 +363,6 @@ async function handleSubmitSelection(payload: {
 
     if (error) throw error;
 
-    console.log(data);
     currentUserSubmission.value = data;
     const index = collaborators.value.findIndex(
       (c) => c.user_id === user.value?.id
@@ -431,8 +374,6 @@ async function handleSubmitSelection(payload: {
     const allHaveSubmitted = collaborators.value.every(
       (c) => c.budget !== null && c.budget !== undefined
     );
-    console.log(allHaveSubmitted);
-    console.log(collaborators.value);
 
     if (allHaveSubmitted) {
       triggerDecisionTree();
@@ -517,7 +458,6 @@ async function fetchActiveQuestion() {
     .eq("level", 1)
     .single();
   if (!data) return;
-  console.log(data.id);
   await supabase
     .from("decision_tree_questions")
     .update({ status: "active" })
@@ -573,7 +513,6 @@ onMounted(async () => {
         filter: `id=eq.${canvasId}`,
       },
       (payload) => {
-        console.log("Canvas updated:", payload);
         canvas.value = payload.new;
         updateOwnerActivate();
         if (canvas.value.finalProposal) {
@@ -600,8 +539,6 @@ onMounted(async () => {
         filter: `canvas_id=eq.${canvasId}`,
       },
       (payload) => {
-        console.log("Realtime INSERT received!", payload);
-
         // --- DUPLICATION CHECK ---
         const existingItem = items.value.find(
           (item) => item.id === payload.new.id
@@ -620,7 +557,6 @@ onMounted(async () => {
         filter: `canvas_id=eq.${canvasId}`,
       },
       (payload) => {
-        console.log("Realtime UPDATE received!", payload);
         const index = items.value.findIndex(
           (item) => item.id === payload.new.id
         );
@@ -653,16 +589,7 @@ onMounted(() => {
         }
       }
     )
-    .subscribe((status, err) => {
-      if (status === "SUBSCRIBED") {
-        console.log(
-          `Successfully subscribed to questions for canvas ${canvasId}!`
-        );
-      }
-      if (status === "CHANNEL_ERROR") {
-        console.error("Channel error:", err);
-      }
-    });
+    .subscribe((status, err) => {});
 });
 
 onUnmounted(() => {
