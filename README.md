@@ -33,7 +33,15 @@ It enables group travelers to:
 
 ## Demo
 
-*(Insert screenshots or GIFs here)*  
+<img width="882" height="421" alt="image" src="https://github.com/user-attachments/assets/ffe0e78f-26a9-4645-a718-dd0e46bbbc0a" />
+
+<img width="821" height="393" alt="image" src="https://github.com/user-attachments/assets/8edbf153-ca4d-4134-a6a7-97d91eaec9e3" />
+
+<img width="811" height="494" alt="image" src="https://github.com/user-attachments/assets/0788ab1d-343f-4036-ae3f-d99d72c8610e" />
+
+<img width="940" height="518" alt="image" src="https://github.com/user-attachments/assets/f3b893e4-2643-4ecd-b75a-f446cc6d2d6e" />
+
+<img width="917" height="449" alt="image" src="https://github.com/user-attachments/assets/83c3f90c-89af-46f8-8e05-a5df47904436" />
 
 1. Create a new travel canvas and invite group members.  
 2. Add budget, number of days, and select preferred destinations.  
